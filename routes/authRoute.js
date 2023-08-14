@@ -9,6 +9,8 @@ import {
   getAllOrdersController,
   orderStatusController,
   allUsersController,
+  sendotpController,
+  otpVerifyController,
 } from "../controller/authController.js";
 import { isAdmin, requireSignin } from "../middlewares/authMiddleware.js";
 
@@ -24,6 +26,14 @@ router.post("/login", loginController);
 
 //forget password
 router.post("/forget-password", forgetPasswordController);
+
+
+//send Otp
+router.post("/sendotp", sendotpController);
+
+
+//Verify Otp
+router.post("/verifyotp", otpVerifyController);
 
 //test
 router.get("/test", requireSignin, isAdmin, testController);

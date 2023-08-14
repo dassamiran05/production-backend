@@ -39,7 +39,7 @@ router.put(
   );
 
 //get products
-router.get("/get-product", getProductController);
+router.get("/get-product/:page", getProductController);
 
 //single product
 router.get("/single-product/:slug", singleProductController);
@@ -58,7 +58,7 @@ router.post("/product-filters", productFiltersController);
 router.get("/product-count", productCountController);
 
 //product per page
-router.get("/product-list/:page", productListController);
+router.post("/product-list/:page", productListController);
 
 
 //search product

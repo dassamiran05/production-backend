@@ -63,11 +63,14 @@ export const createProductController = async (req, res) => {
 
 export const getProductController = async (req, res) => {
   try {
+    const perpage = 6;
+    const page = req.params.page ? req.params.page : 1;
     const products = await productModel
       .find({})
       .populate("category")
       .select("-photo -quantity")
-      .limit(12)
+      .skip((page - 1) * perpage)
+      .limit(perpage)
       .sort({ createdAt: -1 });
     res.status(200).send({
       success: true,
@@ -190,11 +193,19 @@ export const updateProductController = async (req, res) => {
 
 export const productFiltersController = async (req, res) => {
   try {
-    const { checked, radio } = req.body;
+    const filterOption  = req.body;
+    console.log(filterOption);
+    const { checked, radio } = filterOption;
+    // const perpage = 6;
+    // const page = req.params.page ? req.params.page : 1;
+
     let args = {};
-    if (checked.length > 0) args.category = checked;
-    if (radio.length) args.price = { $gte: radio[0], $lte: radio[1] };
-    const products = await productModel.find(args);
+    if (checked?.length > 0) args.category = checked;
+    if (radio?.length > 0) args.price = { $gte: radio[0], $lte: radio[1] };
+    const products = await productModel.find(args).select("-photo -quantity");
+    // .skip((page - 1) * perpage)
+    // .limit(perpage)
+    // .sort({ createdAt: -1 });
     res.status(200).send({
       success: true,
       products,
@@ -230,6 +241,12 @@ export const productCountController = async (req, res) => {
 // product list base on page
 export const productListController = async (req, res) => {
   try {
+
+    // const { checked, radio } = req.body;
+
+    // let args = {};
+    // if (checked?.length > 0) args.category = checked;
+    // if (radio?.length > 0) args.price = { $gte: radio[0], $lte: radio[1] };
     const perPage = 6;
     const page = req.params.page ? req.params.page : 1;
     const products = await productModel
@@ -261,6 +278,7 @@ export const searchProductController = async (req, res) => {
         $or: [
           { name: { $regex: keyword, $options: "i" } },
           { description: { $regex: keyword, $options: "i" } },
+          // { category: { $regex: keyword, $options: "i" } },
         ],
       })
       .select("-photo -quantity");
@@ -320,8 +338,6 @@ export const productCategoryController = async (req, res) => {
     });
   }
 };
-
-
 
 // payment gateway api
 //Token

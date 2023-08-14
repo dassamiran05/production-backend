@@ -1,7 +1,16 @@
 import userModel from "../models/userModels.js";
-import { comparePassword, hashPassword } from "../helper/authHelper.js";
+import {
+  compareOTP,
+  comparePassword,
+  hashPassword,
+} from "../helper/authHelper.js";
 import JWT from "jsonwebtoken";
 import orderModel from "../models/orderModel.js";
+import userModels from "../models/userModels.js";
+import otpModel from "../models/otpModel.js";
+import otpGenerator from "otp-generator";
+import bcrypt from "bcrypt";
+import twilio from "twilio";
 
 export const registerController = async (req, res) => {
   try {
@@ -139,16 +148,17 @@ export const loginController = async (req, res) => {
 //forget password Controller
 export const forgetPasswordController = async (req, res) => {
   try {
-    const { email, answer, newpassword } = req.body;
+    const { newuserpass } = req.body;
+    const { email, answer, newpassword } = newuserpass;
 
-    if (!email) {
-      res.status(400).send({ message: "Email is required" });
-    }
-    if (!answer) {
-      res.status(400).send({ message: "Answer is required" });
-    }
+    // if (!email) {
+    //   res.status(400).send({ message: "Email is required" });
+    // }
+    // if (!answer) {
+    //   res.status(400).send({ message: "Answer is required" });
+    // }
     if (!newpassword) {
-      res.status(400).send({ message: "New password is required" });
+      return res.status(400).send({ message: "New password is required" });
     }
 
     const user = await userModel.findOne({ email, answer });
@@ -291,4 +301,85 @@ export const orderStatusController = async (req, res) => {
       error,
     });
   }
+};
+
+export const sendotpController = async (req, res) => {
+  try {
+    const { phone } = req.body;
+    const user = await userModels.findOne({ phone });
+    if (!user) {
+      return res.status(404).send({
+        success: false,
+        message: "Invalid Phone number",
+      });
+    }
+    const OTP = otpGenerator.generate(6, {
+      digits: true,
+      alphabets: false,
+      upperCase: false,
+      specialChars: false,
+    });
+
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    const client = twilio(accountSid, authToken);
+
+    const smsres = await client.messages.create({
+      from: "+13136318391",
+      body: `Hi there your OTP is ${OTP}`,
+      to: `+91${phone}`,
+    });
+
+    const otp = new otpModel({ number: phone, otp: OTP });
+    const salt = await bcrypt.genSalt(10);
+    otp.otp = await bcrypt.hash(otp.otp, salt);
+    const result = await otp.save();
+
+    return res.status(200).send({
+      success: true,
+      message: "Otp sent succssfully",
+    });
+  } catch (error) {
+    res.status(500).send({
+      success: false,
+      message: "Error While Sending OTP",
+      error,
+    });
+  }
+};
+
+export const otpVerifyController = async (req, res) => {
+  try {
+    const { otp, phone } = req.body;
+
+    const numberholder = await otpModel.find({ number: phone });
+
+    if (numberholder?.length === 0)
+      return res.status(400).send("You use an expired OTP");
+    const lastTried = numberholder[numberholder?.length - 1];
+
+    const validUser = await compareOTP(otp, lastTried?.otp);
+
+    if (!validUser) {
+      return res.status(400).send({ success: false, message: "Invalid OTP" });
+    }
+
+    if (lastTried?.number === phone && validUser) {
+      const user = await userModels.find({ phone }).select("email answer");
+      console.log(user);
+
+      const otpDelete = await otpModel.deleteMany({
+        number: lastTried?.number,
+      });
+      res.status(200).send({
+        success: true,
+        message: "Otp verified Successfully",
+        user: user,
+      });
+    }
+  } catch (error) {
+    console.log(error);
+  }
+
+  // console.log(otp, phone, lastTried, validUser);
 };
